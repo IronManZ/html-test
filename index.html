@@ -1,96 +1,199 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>导航选择</title>
+    <title>多地图导航</title>
+    <script src="https://api.map.baidu.com/api?v=3.0&ak=你的百度地图AK"></script>
     <style>
-        body {
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
             font-family: Arial, sans-serif;
-            margin: 20px;
         }
-        .app-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
+        #map {
+            width: 100%;
+            height: 80%;
         }
-        .app {
+        .footer {
             text-align: center;
-            width: 80px;
+            padding: 10px;
+            background: #f8f8f8;
+            box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.1);
         }
-        .app img {
-            width: 60px;
-            height: 60px;
-            border-radius: 12px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .app button {
-            margin-top: 8px;
-            background-color: #007BFF;
-            color: #fff;
+        .footer button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
             border: none;
-            padding: 5px 10px;
             border-radius: 5px;
             cursor: pointer;
         }
-        .app button.disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
+        .dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .dialog-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        .dialog-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .app-option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+        }
+        .app-option:last-child {
+            border-bottom: none;
+        }
+        .app-option img {
+            width: 30px;
+            height: 30px;
+            margin-right: 15px;
+        }
+        .app-option span {
+            font-size: 16px;
+            color: #333;
+        }
+        .app-option span.description {
+            font-size: 12px;
+            color: #777;
+        }
+        .cancel-button {
+            display: block;
+            margin: 15px auto 0;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #fff;
+            background-color: #f44336;
+            border: none;
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <h2>选择导航应用</h2>
-    <div class="app-container">
-        <div class="app">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/AutoNavi_icon.png/240px-AutoNavi_icon.png" alt="高德地图">
-            <button onclick="navigateTo('amap', '高德地图')">高德地图</button>
-        </div>
-        <div class="app">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/BaiduMap_Icon.png/240px-BaiduMap_Icon.png" alt="百度地图">
-            <button onclick="navigateTo('baidu', '百度地图')">百度地图</button>
-        </div>
-        <div class="app">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/TencentMap_Icon.png/240px-TencentMap_Icon.png" alt="腾讯地图">
-            <button onclick="navigateTo('tencent', '腾讯地图')">腾讯地图</button>
+    <div id="map"></div>
+    <div class="footer">
+        <button onclick="showNavigationOptions()">导航到故宫</button>
+    </div>
+
+    <!-- 弹出框 -->
+    <div id="dialog" class="dialog" style="display: none;">
+        <div class="dialog-content">
+            <div class="dialog-header">选择地图应用</div>
+            <div class="app-option" onclick="openAmap()">
+                <img src="https://img.icons8.com/color/48/000000/amap.png" alt="高德地图">
+                <div>
+                    <span>高德地图</span><br>
+                    <span class="description">精准导航，实时路况</span>
+                </div>
+            </div>
+            <div class="app-option" onclick="openBaiduMap()">
+                <img src="https://img.icons8.com/color/48/000000/baidu.png" alt="百度地图">
+                <div>
+                    <span>百度地图</span><br>
+                    <span class="description">精准导航，实时公交</span>
+                </div>
+            </div>
+            <div class="app-option" onclick="openTencentMap()">
+                <img src="https://img.icons8.com/color/48/000000/tencent-map.png" alt="腾讯地图">
+                <div>
+                    <span>腾讯地图</span><br>
+                    <span class="description">清晰导航，推荐路线</span>
+                </div>
+            </div>
+            <button class="cancel-button" onclick="closeDialog()">取消</button>
         </div>
     </div>
 
     <script>
-        const destination = {
-            name: "故宫博物院",
-            lat: 39.916345, // 故宫纬度
-            lng: 116.397155  // 故宫经度
-        };
+        const palaceLocation = { lat: 39.916345, lng: 116.397155 }; // 故宫经纬度
 
-        function navigateTo(app, appName) {
-            const coords = `${destination.lat},${destination.lng}`;
-            const locationName = encodeURIComponent(destination.name);
-            let scheme;
+        // 初始化百度地图
+        function initMap() {
+            const map = new BMapGL.Map("map");
+            const point = new BMapGL.Point(palaceLocation.lng, palaceLocation.lat);
+            map.centerAndZoom(point, 15);
+            const marker = new BMapGL.Marker(point);
+            map.addOverlay(marker);
 
-            switch (app) {
-                case "amap": // 高德地图
-                    scheme = `amapuri://route/plan/?dlat=${destination.lat}&dlon=${destination.lng}&dname=${locationName}&dev=0&t=0`;
-                    break;
-                case "baidu": // 百度地图
-                    scheme = `baidumap://map/direction?destination=name:${locationName}|latlng:${coords}&coord_type=gcj02&mode=driving`;
-                    break;
-                case "tencent": // 腾讯地图
-                    scheme = `qqmap://map/routeplan?type=drive&to=${locationName}&tocoord=${coords}`;
-                    break;
-                default:
-                    alert("未知应用");
-                    return;
-            }
+            const label = new BMapGL.Label("故宫", {
+                position: point,
+                offset: new BMapGL.Size(10, -30),
+            });
+            label.setStyle({
+                backgroundColor: "#fff",
+                padding: "5px",
+                borderRadius: "3px",
+                borderColor: "#ccc",
+            });
+            marker.setLabel(label);
 
-            // 尝试打开应用
-            window.location.href = scheme;
+            marker.addEventListener("click", showNavigationOptions);
+        }
 
-            // 如果未安装，提示用户
+        // 显示选择导航应用的弹窗
+        function showNavigationOptions() {
+            document.getElementById("dialog").style.display = "flex";
+        }
+
+        // 关闭弹窗
+        function closeDialog() {
+            document.getElementById("dialog").style.display = "none";
+        }
+
+        // 高德地图导航
+        function openAmap() {
+            const schemeUrl = `amapuri://route/plan/?dlat=${palaceLocation.lat}&dlon=${palaceLocation.lng}&dname=故宫&dev=0&t=0`;
+            tryOpenApp(schemeUrl);
+        }
+
+        // 百度地图导航
+        function openBaiduMap() {
+            const schemeUrl = `baidumap://map/direction?destination=latlng:${palaceLocation.lat},${palaceLocation.lng}|name:故宫&mode=driving`;
+            tryOpenApp(schemeUrl);
+        }
+
+        // 腾讯地图导航
+        function openTencentMap() {
+            const schemeUrl = `qqmap://map/routeplan?type=drive&tocoord=${palaceLocation.lat},${palaceLocation.lng}&to=故宫&referer=你的App名称`;
+            tryOpenApp(schemeUrl);
+        }
+
+        // 尝试打开导航应用
+        function tryOpenApp(url) {
+            window.location.href = url;
+
+            // 如果应用未安装，可以考虑跳转到其他页面或显示提示
             setTimeout(() => {
-                alert(`${appName} 未安装，请先安装后再尝试！`);
+                alert("如果未能打开应用，请检查是否安装了对应的地图 App");
             }, 2000);
         }
+
+        // 加载地图
+        initMap();
     </script>
 </body>
 </html>
